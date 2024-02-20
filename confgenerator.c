@@ -199,6 +199,11 @@ int32_t confgenerator_serialize_mcconf(uint8_t *buffer, const mc_configuration *
 	buffer_append_float16(buffer, conf->bms.soc_limit_start, 1000, &ind);
 	buffer_append_float16(buffer, conf->bms.soc_limit_end, 1000, &ind);
 	buffer[ind++] = conf->bms.fwd_can_mode;
+    buffer[ind++] = conf->foc_ac_enable;
+    buffer_append_float32_auto(buffer, conf->foc_ac_threshold_erpm, &ind);
+    buffer_append_float32_auto(buffer, conf->foc_ac_remapping_k, &ind);
+    buffer_append_float32_auto(buffer, conf->foc_ac_remapping_b, &ind);
+    buffer[ind++] = conf->foc_ac_dm_comp;
 
 	return ind;
 }
@@ -596,6 +601,11 @@ bool confgenerator_deserialize_mcconf(const uint8_t *buffer, mc_configuration *c
 	conf->bms.soc_limit_start = buffer_get_float16(buffer, 1000, &ind);
 	conf->bms.soc_limit_end = buffer_get_float16(buffer, 1000, &ind);
 	conf->bms.fwd_can_mode = buffer[ind++];
+    conf->foc_ac_enable = buffer[ind++];
+    conf->foc_ac_threshold_erpm = buffer_get_float32_auto(buffer, &ind);
+    conf->foc_ac_remapping_k = buffer_get_float32_auto(buffer, &ind);
+    conf->foc_ac_remapping_b = buffer_get_float32_auto(buffer, &ind);
+    conf->foc_ac_dm_comp = buffer[ind++];
 
 	return true;
 }
@@ -924,6 +934,11 @@ void confgenerator_set_defaults_mcconf(mc_configuration *conf) {
 	conf->foc_fw_duty_start = MCCONF_FOC_FW_DUTY_START;
 	conf->foc_fw_ramp_time = MCCONF_FOC_FW_RAMP_TIME;
 	conf->foc_fw_q_current_factor = MCCONF_FOC_FW_Q_CURRENT_FACTOR;
+    conf->foc_ac_enable = MCCONF_FOC_AC_ENABLE;
+    conf->foc_ac_threshold_erpm = MCCONF_FOC_AC_THRESHOLD_ERPM;
+    conf->foc_ac_remapping_k = MCCONF_AC_REMAPPING_K;
+    conf->foc_ac_remapping_b = MCCONF_AC_REMAPPING_B;
+    conf->foc_ac_dm_comp = FOC_AC_DM_COMP;
 	conf->foc_speed_soure = MCCONF_FOC_SPEED_SOURCE;
 	conf->gpd_buffer_notify_left = MCCONF_GPD_BUFFER_NOTIFY_LEFT;
 	conf->gpd_buffer_interpol = MCCONF_GPD_BUFFER_INTERPOL;

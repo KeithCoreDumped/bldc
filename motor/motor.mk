@@ -4,7 +4,8 @@ CSRC += \
 	motor/mc_interface.c \
 	motor/mcpwm.c \
 	motor/mcpwm_foc.c \
-	motor/virtual_motor.c
+	motor/virtual_motor.c \
+	motor/anticogging.c
 	
 INCDIR += motor
 

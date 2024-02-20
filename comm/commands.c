@@ -61,6 +61,8 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <anticogging.h>
+#include "worker.h"
 
 // Settings
 #define PRINT_BUFFER_SIZE	400
@@ -182,6 +184,18 @@ void commands_unregister_reply_func(void(*reply_func)(unsigned char *data, unsig
 
 static void send_func_dummy(unsigned char *data, unsigned int len) {
 	(void)data; (void)len;
+}
+
+void anticogging_sample_callback(bool finish, bool success, bool forward, int pos_index, float iq) {
+    int32_t ind = 0;
+    uint8_t buffer[10];
+    buffer[ind++] = COMM_DETECT_ANTICOGGING;
+    buffer[ind++] = finish;
+    buffer[ind++] = success;
+    buffer[ind++] = forward;
+    buffer_append_int16(buffer, (int16_t)pos_index, &ind);
+    buffer_append_float32_auto(buffer, iq, &ind);
+    commands_send_packet(buffer, ind);
 }
 
 /**
@@ -1666,6 +1680,8 @@ void commands_process_packet(unsigned char *data, unsigned int len,
 	case COMM_BM_MEM_READ:
 	case COMM_GET_IMU_CALIBRATION:
 	case COMM_BM_MEM_WRITE:
+    case COMM_DETECT_ANTICOGGING:
+    case COMM_READ_ANTICOGGING:
 		if (!is_blocking) {
 			memcpy(blocking_thread_cmd_buffer, data - 1, len + 1);
 			blocking_thread_cmd_len = len + 1;
@@ -1675,6 +1691,30 @@ void commands_process_packet(unsigned char *data, unsigned int len,
 			chEvtSignal(blocking_tp, (eventmask_t)1);
 		}
 		break;
+    case COMM_WRITE_ANTICOGGING: {
+        int32_t ind = 0;
+        uint8_t status = data[ind++];
+        bool ret = 0;
+        switch(status) {
+            case AC_BLOCK_START: {
+                ret = anticogging_block_write_start();
+            } break;
+            case AC_BLOCK_ONGOING: {
+                uint32_t offset = buffer_get_uint32(data, &ind);
+                ret = anticogging_block_write(data + ind, len - ind, offset);
+            } break;
+            case AC_BLOCK_END: {
+                ret = anticogging_block_write_end();
+            } break;
+            default: break;
+        }
+        ind = 0;
+        uint8_t send_buffer[50];
+        send_buffer[ind++] = COMM_WRITE_ANTICOGGING;
+        send_buffer[ind++] = AC_BLOCK_ACK;
+        send_buffer[ind++] = ret;
+        reply_func(send_buffer, ind);
+    } break;
 
 	default:
 		break;
@@ -2423,6 +2463,38 @@ static THD_FUNCTION(blocking_thread, arg) {
 				send_func_blocking(send_buffer, ind);
 			}
 		} break;
+
+        case COMM_DETECT_ANTICOGGING: {
+            int32_t ind = 0;
+            int attempt_count = buffer_get_uint16(data, &ind);
+            int sample_per_point = buffer_get_uint16(data, &ind);
+            float err_abs_threshold = buffer_get_float32_auto(data, &ind);
+            float err_threshold = buffer_get_float32_auto(data, &ind);
+            bool print = true;
+            anticogging_calibration(print, attempt_count, sample_per_point, err_abs_threshold, err_threshold, anticogging_sample_callback);
+        } break;
+
+        case COMM_READ_ANTICOGGING: {
+            int32_t recv_ind = 0;
+            int32_t send_ind = 0;
+            uint8_t status = data[recv_ind++];
+            send_buffer[send_ind++] = COMM_READ_ANTICOGGING;
+            switch(status) {
+                case AC_BLOCK_START: {
+                    send_buffer[send_ind++] = AC_BLOCK_START;
+                    send_buffer[send_ind++] = anticogging_current_block_valid();
+                } break;
+                case AC_BLOCK_ONGOING: {
+                    send_buffer[send_ind++] = AC_BLOCK_ONGOING;
+                    uint32_t offset = buffer_get_uint32(data, &recv_ind);
+                    uint32_t read_len = buffer_get_uint32(data, &recv_ind);
+                    anticogging_block_read(send_buffer + send_ind, read_len, offset);
+                    send_ind += read_len;
+                } break;
+                default: break;
+            }
+            send_func_blocking(send_buffer, send_ind);
+        } break;
 
 		default:
 			break;

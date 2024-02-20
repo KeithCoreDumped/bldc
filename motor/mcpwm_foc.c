@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include "virtual_motor.h"
 #include "foc_math.h"
+#include "anticogging.h"
 
 // Private variables
 static volatile bool m_dccal_done = false;
@@ -565,6 +566,8 @@ void mcpwm_foc_init(mc_configuration *conf_m1, mc_configuration *conf_m2) {
 			"Enable HFI plotting. 0: off, 1: DFT, 2: Raw",
 			"[en]",
 			terminal_plot_hfi);
+
+    anticogging_init();
 
 	m_init_done = true;
 }
@@ -2834,7 +2837,7 @@ void mcpwm_foc_adc_int_handler(void *p, uint32_t flags) {
 				motor_now->m_control_mode == CONTROL_MODE_OPENLOOP_DUTY_PHASE;
 
 		// Short all phases (duty=0) the moment the direction or modulation changes sign. That will avoid
-		// active braking or changing direction. Keep all phases shorted (duty == 0) until the
+		//  active braking or changingdirection. Keep all phases shorted (duty == 0) until the
 		// braking current reaches the set or maximum value, then go back to current control
 		// mode. Stay in duty=0 for at least 10 cycles to avoid jumping in and out of that mode rapidly
 		// around the threshold.

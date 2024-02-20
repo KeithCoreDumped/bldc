@@ -20,6 +20,7 @@
 #include "foc_math.h"
 #include "utils_math.h"
 #include <math.h>
+#include "anticogging.h"
 
 // See http://cas.ensmp.fr/~praly/Telechargement/Journaux/2010-IEEE_TPEL-Lee-Hong-Nam-Ortega-Praly-Astolfi.pdf
 void foc_observer_update(float v_alpha, float v_beta, float i_alpha, float i_beta,
@@ -442,6 +443,26 @@ void foc_run_pid_control_pos(bool index_found, float dt, motor_all_state_t *moto
 	} else {
 		motor->m_iq_set = output * conf_now->l_current_max * conf_now->l_current_max_scale;;
 	}
+
+    // anticogging
+    float torque_iq = 0;
+    if(conf_now->foc_ac_enable && anticogging_current_block_valid()
+       && fabsf(motor->m_speed_pid_set_rpm) < conf_now->foc_ac_threshold_erpm
+       && fabsf(motor->m_speed_est_fast) < conf_now->foc_ac_threshold_erpm
+            ) {
+        torque_iq = anticogging_get_feedforward();
+        if (conf_now->foc_ac_dm_comp) {
+            torque_iq += anticogging_get_feedforward_diff_mode();
+            if (motor->m_speed_est_fast > 0 || motor->m_speed_pid_set_rpm >= 0)
+                torque_iq += anticogging_get_feedforward_diff_mode();
+            else
+                torque_iq -= anticogging_get_feedforward_diff_mode();
+        }
+        torque_iq *= conf_now->foc_ac_remapping_k;
+        torque_iq += conf_now->foc_ac_remapping_b;
+    }
+
+    motor->m_iq_set += torque_iq;
 }
 
 void foc_run_pid_control_speed(float dt, motor_all_state_t *motor) {
@@ -507,6 +528,26 @@ void foc_run_pid_control_speed(float dt, motor_all_state_t *motor) {
 	}
 
 	motor->m_iq_set = output * conf_now->lo_current_max * conf_now->l_current_max_scale;
+
+    // anticogging
+    float torque_iq = 0;
+    if(conf_now->foc_ac_enable && anticogging_current_block_valid()
+        && fabsf(motor->m_speed_pid_set_rpm) < conf_now->foc_ac_threshold_erpm
+        && fabsf(motor->m_speed_est_fast) < conf_now->foc_ac_threshold_erpm
+        ) {
+        torque_iq = anticogging_get_feedforward();
+        if (conf_now->foc_ac_dm_comp) {
+            torque_iq += anticogging_get_feedforward_diff_mode();
+            if (motor->m_speed_est_fast > 0 || motor->m_speed_pid_set_rpm >= 0)
+                torque_iq += anticogging_get_feedforward_diff_mode();
+            else
+                torque_iq -= anticogging_get_feedforward_diff_mode();
+        }
+        torque_iq *= conf_now->foc_ac_remapping_k;
+        torque_iq += conf_now->foc_ac_remapping_b;
+    }
+
+    motor->m_iq_set += torque_iq;
 }
 
 float foc_correct_encoder(float obs_angle, float enc_angle, float speed,

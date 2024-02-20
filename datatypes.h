@@ -463,6 +463,14 @@ typedef struct {
 	float foc_fw_duty_start;
 	float foc_fw_ramp_time;
 	float foc_fw_q_current_factor;
+    bool foc_ac_dm_comp;
+
+    // Anticogging
+    bool foc_ac_enable;
+    float foc_ac_threshold_erpm;
+    float foc_ac_remapping_k;
+    float foc_ac_remapping_b;
+
 	SPEED_SRC foc_speed_soure;
 
 	// GPDrive
@@ -1149,6 +1157,10 @@ typedef enum {
 	COMM_GET_GNSS,
 
 	COMM_LOG_DATA_F64,
+
+    COMM_DETECT_ANTICOGGING,
+    COMM_WRITE_ANTICOGGING,
+    COMM_READ_ANTICOGGING
 } COMM_PACKET_ID;
 
 // CAN commands
