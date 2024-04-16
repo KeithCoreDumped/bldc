@@ -71,6 +71,7 @@ typedef struct {
 } MT6816_state;
 
 typedef struct {
+#ifndef MT6816_USE_SWSPI
 	SPIDriver *spi_dev;
 	SPIConfig hw_spi_cfg;
 	uint8_t spi_af;
@@ -82,6 +83,9 @@ typedef struct {
 	int mosi_pin;
 	stm32_gpio_t *miso_gpio;
 	int miso_pin;
+#else
+    spi_bb_state sw_spi;
+#endif
 
 	MT6816_state state;
 } MT6816_config_t;

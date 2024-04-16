@@ -36,6 +36,7 @@
 #define MT6816_NO_MAGNET_ERROR_MASK		0x0002
 
 bool enc_mt6816_init(MT6816_config_t *cfg) {
+#ifndef MT6816_USE_SWSPI
 	if (cfg->spi_dev == NULL) {
 		return false;
 	}
@@ -52,7 +53,10 @@ bool enc_mt6816_init(MT6816_config_t *cfg) {
 			PAL_MODE_ALTERNATE(cfg->spi_af) | PAL_STM32_OSPEED_HIGHEST);
 
 	spiStart(cfg->spi_dev, &(cfg->hw_spi_cfg));
-
+#else
+    memset(&cfg->state, 0, sizeof(MT6816_state));
+    spi_bb_init_CPOL1(&(cfg->sw_spi));
+#endif
 	cfg->state.spi_error_rate = 0.0;
 	cfg->state.encoder_no_magnet_error_rate = 0.0;
 
@@ -60,6 +64,7 @@ bool enc_mt6816_init(MT6816_config_t *cfg) {
 }
 
 void enc_mt6816_deinit(MT6816_config_t *cfg) {
+#ifndef MT6816_USE_SWSPI
 	if (cfg->spi_dev == NULL) {
 		return;
 	}
@@ -70,7 +75,10 @@ void enc_mt6816_deinit(MT6816_config_t *cfg) {
 	palSetPadMode(cfg->mosi_gpio, cfg->mosi_pin, PAL_MODE_INPUT_PULLUP);
 
 	spiStop(cfg->spi_dev);
-
+#else
+    spi_bb_deinit(&(cfg->sw_spi));
+    palSetPadMode(cfg->sw_spi.mosi_gpio, cfg->sw_spi.mosi_pin, PAL_MODE_INPUT_ANALOG);
+#endif
 	cfg->state.last_enc_angle = 0.0;
 	cfg->state.spi_error_rate = 0.0;
 }
@@ -88,9 +96,13 @@ void enc_mt6816_routine(MT6816_config_t *cfg) {
 	uint16_t reg_addr_03 = 0x8300;
 	uint16_t reg_addr_04 = 0x8400;
 
+#ifndef MT6816_USE_SWSPI
 #define SPI_BEGIN()		spi_bb_delay(); palClearPad(cfg->nss_gpio, cfg->nss_pin); spi_bb_delay();
 #define SPI_END()		spi_bb_delay(); palSetPad(cfg->nss_gpio, cfg->nss_pin); spi_bb_delay();
-
+#else
+#define SPI_BEGIN()     spi_bb_begin(&(cfg->sw_spi));
+#define SPI_END()       spi_bb_end(&(cfg->sw_spi));
+#endif
 	// TODO: The fact that the polled version is used means that it is
 	// more or less pointless to use the hardware SPI as the CPU sits
 	// and wastes cycles waiting for the hardware to finish.
@@ -98,11 +110,19 @@ void enc_mt6816_routine(MT6816_config_t *cfg) {
 	// A better approach would be to use spiStartExchangeI and use a callback
 	// for when the operation finishes and process the data from there.
 	SPI_BEGIN();
-	reg_data_03 = spiPolledExchange(cfg->spi_dev, reg_addr_03);
+#ifndef MT6816_USE_SWSPI
+    reg_data_03 = spiPolledExchange(cfg->spi_dev, reg_addr_03);
+#else
+    spi_bb_transfer_16_CPOL1(&cfg->sw_spi, &reg_data_03, &reg_addr_03, 1);
+#endif
 	SPI_END();
 	spi_bb_delay();
 	SPI_BEGIN();
+#ifndef MT6816_USE_SWSPI
 	reg_data_04 = spiPolledExchange(cfg->spi_dev, reg_addr_04);
+#else
+    spi_bb_transfer_16_CPOL1(&cfg->sw_spi, &reg_data_04, &reg_addr_04, 1);
+#endif
 	SPI_END();
 
 	pos = (reg_data_03 << 8) | reg_data_04;

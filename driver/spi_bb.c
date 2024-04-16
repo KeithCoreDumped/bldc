@@ -23,17 +23,32 @@
 // Software SPI
 
 void spi_bb_init(spi_bb_state *s) {
-	chMtxObjectInit(&s->mutex);
+    chMtxObjectInit(&s->mutex);
 
-	palSetPadMode(s->miso_gpio, s->miso_pin, PAL_MODE_INPUT_PULLUP);
-	palSetPadMode(s->sck_gpio, s->sck_pin, PAL_MODE_OUTPUT_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
-	palSetPadMode(s->nss_gpio, s->nss_pin, PAL_MODE_OUTPUT_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
+    palSetPadMode(s->miso_gpio, s->miso_pin, PAL_MODE_INPUT_PULLUP);
+    palSetPadMode(s->sck_gpio, s->sck_pin, PAL_MODE_OUTPUT_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
+    palSetPadMode(s->nss_gpio, s->nss_pin, PAL_MODE_OUTPUT_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
 
-	if (s->mosi_gpio) {
-		palSetPadMode(s->mosi_gpio, s->mosi_pin, PAL_MODE_OUTPUT_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
-		palSetPad(s->mosi_gpio, s->mosi_pin);
-		palSetPad(s->nss_gpio, s->nss_pin);
-	}
+    if (s->mosi_gpio) {
+        palSetPadMode(s->mosi_gpio, s->mosi_pin, PAL_MODE_OUTPUT_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
+        palSetPad(s->mosi_gpio, s->mosi_pin);
+        palSetPad(s->nss_gpio, s->nss_pin);
+    }
+}
+
+void spi_bb_init_CPOL1(spi_bb_state *s) {
+    chMtxObjectInit(&s->mutex);
+
+    palSetPadMode(s->miso_gpio, s->miso_pin, PAL_MODE_INPUT_PULLUP);
+    palSetPadMode(s->sck_gpio, s->sck_pin, PAL_MODE_OUTPUT_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
+    palSetPadMode(s->nss_gpio, s->nss_pin, PAL_MODE_OUTPUT_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
+
+    if (s->mosi_gpio) {
+        palSetPadMode(s->mosi_gpio, s->mosi_pin, PAL_MODE_OUTPUT_PUSHPULL | PAL_STM32_OSPEED_HIGHEST);
+        palSetPad(s->mosi_gpio, s->mosi_pin);
+        palSetPad(s->nss_gpio, s->nss_pin);
+    }
+    palSetPad(s->sck_gpio, s->sck_pin);
 }
 
 void spi_bb_deinit(spi_bb_state *s) {
@@ -168,6 +183,46 @@ void spi_bb_transfer_16(
 	}
 }
 
+
+void spi_bb_transfer_16_CPOL1(spi_bb_state *s, uint16_t *in_buf, const uint16_t *out_buf, int length) {
+    for (int i = 0; i < length; i++) {
+        uint16_t send = out_buf ? out_buf[i] : 0xFFFF;
+        uint16_t receive = 0;
+
+        for (int bit = 0; bit < 16; bit++) {
+            if(s->mosi_gpio) {
+                palWritePad(s->mosi_gpio, s->mosi_pin, send >> 15);
+                send <<= 1;
+            }
+
+            palClearPad(s->sck_gpio, s->sck_pin);
+            spi_bb_delay_short();
+
+            int samples = 0;
+            samples += palReadPad(s->miso_gpio, s->miso_pin);
+            __NOP();
+            samples += palReadPad(s->miso_gpio, s->miso_pin);
+            __NOP();
+            samples += palReadPad(s->miso_gpio, s->miso_pin);
+            __NOP();
+            samples += palReadPad(s->miso_gpio, s->miso_pin);
+            __NOP();
+            samples += palReadPad(s->miso_gpio, s->miso_pin);
+
+            receive <<= 1;
+            if (samples > 2) {
+                receive |= 1;
+            }
+
+            palSetPad(s->sck_gpio, s->sck_pin);
+            spi_bb_delay_short();
+        }
+
+        if (in_buf) {
+            in_buf[i] = receive;
+        }
+    }
+}
 /**
  * @brief 
  * Software data transfer using SSC protocol.

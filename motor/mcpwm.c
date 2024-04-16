@@ -160,6 +160,10 @@ static void pll_run(float phase, float dt, volatile float *phase_var,
 // Defines
 #define IS_DETECTING()			(state == MC_STATE_DETECTING)
 
+// add en_gate pin control
+#define MC_ENABLE_GATE() ENABLE_GATE()
+#define MC_DISABLE_GATE() DISABLE_GATE()
+
 // Threads
 static THD_WORKING_AREA(timer_thread_wa, 512);
 static THD_FUNCTION(timer_thread, arg);
@@ -602,6 +606,7 @@ void mcpwm_set_duty_noramp(float dutyCycle) {
 
 	if (state != MC_STATE_RUNNING) {
 		set_duty_cycle_hl(dutyCycle);
+        MC_ENABLE_GATE();
 	} else {
 		dutycycle_set = dutyCycle;
 		dutycycle_now = dutyCycle;
@@ -634,6 +639,7 @@ void mcpwm_set_pid_pos(float pos) {
 
 	if (state != MC_STATE_RUNNING) {
 		set_duty_cycle_hl(conf->l_min_duty);
+        MC_ENABLE_GATE();
 	}
 }
 
@@ -660,6 +666,7 @@ void mcpwm_set_current(float current) {
 
 	if (state != MC_STATE_RUNNING) {
 		set_duty_cycle_hl(SIGN(current) * conf->l_min_duty);
+        MC_ENABLE_GATE();
 	}
 }
 
@@ -693,12 +700,14 @@ void mcpwm_set_brake_current(float current) {
 		// so that it can be ramped down before the full brake is applied.
 		if (conf->motor_type == MOTOR_TYPE_DC) {
 			if (fabsf(dutycycle_now) > 0.1) {
+                MC_ENABLE_GATE();
 				state = MC_STATE_RUNNING;
 			} else {
 				full_brake_ll();
 			}
 		} else {
 			if (fabsf(rpm_now) > conf->l_max_erpm_fbrake) {
+                MC_ENABLE_GATE();
 				state = MC_STATE_RUNNING;
 			} else {
 				full_brake_ll();
@@ -921,6 +930,7 @@ void mcpwm_stop_pwm(void) {
 
 static void stop_pwm_ll(void) {
 	state = MC_STATE_OFF;
+    MC_DISABLE_GATE();
 	ignore_iterations = MCPWM_CMD_STOP_TIME;
 	stop_pwm_hw();
 }
@@ -1010,12 +1020,14 @@ static void set_duty_cycle_hl(float dutyCycle) {
 			if (conf->motor_type == MOTOR_TYPE_DC) {
 				if (fabsf(dutycycle_now) > 0.1) {
 					state = MC_STATE_RUNNING;
+                    MC_ENABLE_GATE();
 				} else {
 					full_brake_ll();
 				}
 			} else {
 				if (fabsf(rpm_now) > conf->l_max_erpm_fbrake) {
 					state = MC_STATE_RUNNING;
+                    MC_ENABLE_GATE();
 				} else {
 					full_brake_ll();
 				}
@@ -1085,6 +1097,7 @@ static void set_duty_cycle_ll(float dutyCycle) {
 
 	if (conf->motor_type == MOTOR_TYPE_DC) {
 		state = MC_STATE_RUNNING;
+        MC_ENABLE_GATE();
 		set_next_comm_step(comm_step);
 		commutate(1);
 	} else {
@@ -1092,6 +1105,7 @@ static void set_duty_cycle_ll(float dutyCycle) {
 			if (state != MC_STATE_RUNNING) {
 				if (state == MC_STATE_OFF) {
 					state = MC_STATE_RUNNING;
+                    MC_ENABLE_GATE();
 
 					if (fabsf(rpm_now) < conf->sl_min_erpm) {
 						commutate(1);
@@ -1099,6 +1113,7 @@ static void set_duty_cycle_ll(float dutyCycle) {
 				} else if (state == MC_STATE_FULL_BRAKE) {
 					if (fabsf(rpm_now) < conf->sl_min_erpm && mcpwm_get_tot_current_filtered() < conf->sl_max_fullbreak_current_dir_change) {
 						state = MC_STATE_RUNNING;
+                        MC_ENABLE_GATE();
 						commutate(1);
 					}
 				}
@@ -1106,6 +1121,7 @@ static void set_duty_cycle_ll(float dutyCycle) {
 		} else {
 			if (state != MC_STATE_RUNNING) {
 				state = MC_STATE_RUNNING;
+                MC_ENABLE_GATE();
 				comm_step = mcpwm_read_hall_phase();
 				set_next_comm_step(comm_step);
 				commutate(1);

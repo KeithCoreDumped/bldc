@@ -125,6 +125,10 @@ static volatile bool pid_thd_stop;
 		TIM8->CR1 &= ~TIM_CR1_UDIS; \
 		TIM2->CR1 &= ~TIM_CR1_UDIS;
 
+// add en_gate pin control
+#define MC_ENABLE_GATE() ENABLE_GATE()
+#define MC_DISABLE_GATE() DISABLE_GATE()
+
 // #define M_MOTOR: For single motor compilation, expands to &m_motor_1.
 // For dual motors, expands to &m_motor_1 or _2, depending on is_second_motor.
 #ifdef HW_HAS_DUAL_MOTORS
@@ -703,6 +707,7 @@ void mcpwm_foc_set_duty(float dutyCycle) {
 	if (get_motor_now()->m_state != MC_STATE_RUNNING) {
 		get_motor_now()->m_motor_released = false;
 		get_motor_now()->m_state = MC_STATE_RUNNING;
+        MC_ENABLE_GATE();
 	}
 }
 
@@ -748,6 +753,7 @@ void mcpwm_foc_set_pid_speed(float rpm) {
 			fabsf(rpm) >= motor->m_conf->s_pid_min_erpm) {
 		motor->m_motor_released = false;
 		motor->m_state = MC_STATE_RUNNING;
+        MC_ENABLE_GATE();
 	}
 }
 
@@ -766,6 +772,7 @@ void mcpwm_foc_set_pid_pos(float pos) {
 	if (get_motor_now()->m_state != MC_STATE_RUNNING) {
 		get_motor_now()->m_motor_released = false;
 		get_motor_now()->m_state = MC_STATE_RUNNING;
+        MC_ENABLE_GATE();
 	}
 }
 
@@ -789,6 +796,7 @@ void mcpwm_foc_set_current(float current) {
 	if (get_motor_now()->m_state != MC_STATE_RUNNING) {
 		get_motor_now()->m_motor_released = false;
 		get_motor_now()->m_state = MC_STATE_RUNNING;
+        MC_ENABLE_GATE();
 	}
 }
 
@@ -817,6 +825,7 @@ void mcpwm_foc_set_brake_current(float current) {
 	if (get_motor_now()->m_state != MC_STATE_RUNNING) {
 		get_motor_now()->m_motor_released = false;
 		get_motor_now()->m_state = MC_STATE_RUNNING;
+        MC_ENABLE_GATE();
 	}
 }
 
@@ -838,6 +847,7 @@ void mcpwm_foc_set_handbrake(float current) {
 	if (get_motor_now()->m_state != MC_STATE_RUNNING) {
 		get_motor_now()->m_motor_released = false;
 		get_motor_now()->m_state = MC_STATE_RUNNING;
+        MC_ENABLE_GATE();
 	}
 }
 
@@ -866,6 +876,7 @@ void mcpwm_foc_set_openloop_current(float current, float rpm) {
 	if (get_motor_now()->m_state != MC_STATE_RUNNING) {
 		get_motor_now()->m_motor_released = false;
 		get_motor_now()->m_state = MC_STATE_RUNNING;
+        MC_ENABLE_GATE();
 	}
 }
 
@@ -896,6 +907,7 @@ void mcpwm_foc_set_openloop_phase(float current, float phase) {
 	if (get_motor_now()->m_state != MC_STATE_RUNNING) {
 		get_motor_now()->m_motor_released = false;
 		get_motor_now()->m_state = MC_STATE_RUNNING;
+        MC_ENABLE_GATE();
 	}
 }
 
@@ -978,6 +990,7 @@ void mcpwm_foc_set_openloop_duty(float dutyCycle, float rpm) {
 	if (get_motor_now()->m_state != MC_STATE_RUNNING) {
 		get_motor_now()->m_motor_released = false;
 		get_motor_now()->m_state = MC_STATE_RUNNING;
+        MC_ENABLE_GATE();
 	}
 }
 
@@ -999,6 +1012,7 @@ void mcpwm_foc_set_openloop_duty_phase(float dutyCycle, float phase) {
 	if (get_motor_now()->m_state != MC_STATE_RUNNING) {
 		get_motor_now()->m_motor_released = false;
 		get_motor_now()->m_state = MC_STATE_RUNNING;
+        MC_ENABLE_GATE();
 	}
 }
 
@@ -1462,6 +1476,7 @@ int mcpwm_foc_encoder_detect(float current, bool print, float *offset, float *ra
 	motor->m_control_mode = CONTROL_MODE_CURRENT;
 	motor->m_motor_released = false;
 	motor->m_state = MC_STATE_RUNNING;
+    MC_ENABLE_GATE();
 
 	// Disable timeout
 	systime_t tout = timeout_get_timeout_msec();
@@ -1693,6 +1708,7 @@ int mcpwm_foc_encoder_detect(float current, bool print, float *offset, float *ra
 	motor->m_phase_override = false;
 	motor->m_control_mode = CONTROL_MODE_NONE;
 	motor->m_state = MC_STATE_OFF;
+    MC_DISABLE_GATE();
 	stop_pwm_hw((motor_all_state_t*)motor);
 
 	// Restore configuration
@@ -1741,6 +1757,7 @@ int mcpwm_foc_measure_resistance(float current, int samples, bool stop_after, fl
 	motor->m_control_mode = CONTROL_MODE_CURRENT;
 	motor->m_motor_released = false;
 	motor->m_state = MC_STATE_RUNNING;
+    MC_ENABLE_GATE();
 
 	// Disable timeout
 	systime_t tout = timeout_get_timeout_msec();
@@ -1759,6 +1776,7 @@ int mcpwm_foc_measure_resistance(float current, int samples, bool stop_after, fl
 			motor->m_phase_override = false;
 			motor->m_control_mode = CONTROL_MODE_NONE;
 			motor->m_state = MC_STATE_OFF;
+            MC_DISABLE_GATE();
 			stop_pwm_hw((motor_all_state_t*)motor);
 
 			timeout_configure(tout, tout_c, tout_ksw);
@@ -1792,6 +1810,7 @@ int mcpwm_foc_measure_resistance(float current, int samples, bool stop_after, fl
 			motor->m_phase_override = false;
 			motor->m_control_mode = CONTROL_MODE_NONE;
 			motor->m_state = MC_STATE_OFF;
+            MC_DISABLE_GATE();
 			stop_pwm_hw((motor_all_state_t*)motor);
 
 			timeout_configure(tout, tout_c, tout_ksw);
@@ -1811,6 +1830,7 @@ int mcpwm_foc_measure_resistance(float current, int samples, bool stop_after, fl
 		motor->m_phase_override = false;
 		motor->m_control_mode = CONTROL_MODE_NONE;
 		motor->m_state = MC_STATE_OFF;
+        MC_DISABLE_GATE();
 		stop_pwm_hw((motor_all_state_t*)motor);
 	}
 
@@ -1858,6 +1878,7 @@ int mcpwm_foc_measure_inductance(float duty, int samples, float *curr, float *ld
 	mc_interface_lock();
 	motor->m_control_mode = CONTROL_MODE_NONE;
 	motor->m_state = MC_STATE_OFF;
+    MC_DISABLE_GATE();
 	stop_pwm_hw((motor_all_state_t*)motor);
 
 	motor->m_conf->foc_sensor_mode = FOC_SENSOR_MODE_HFI;
@@ -1909,6 +1930,7 @@ int mcpwm_foc_measure_inductance(float duty, int samples, float *curr, float *ld
 			motor->m_iq_set = 0.0;
 			motor->m_control_mode = CONTROL_MODE_NONE;
 			motor->m_state = MC_STATE_OFF;
+            MC_DISABLE_GATE();
 			stop_pwm_hw((motor_all_state_t*)motor);
 
 			motor->m_conf->foc_sensor_mode = sensor_mode_old;
@@ -2039,6 +2061,7 @@ bool mcpwm_foc_beep(float freq, float time, float voltage) {
 	mc_interface_lock();
 	motor->m_control_mode = CONTROL_MODE_NONE;
 	motor->m_state = MC_STATE_OFF;
+    MC_DISABLE_GATE();
 	stop_pwm_hw((motor_all_state_t*)motor);
 
 	motor->m_conf->foc_sensor_mode = FOC_SENSOR_MODE_HFI;
@@ -2181,6 +2204,7 @@ int mcpwm_foc_hall_detect(float current, uint8_t *hall_table, bool *result) {
 	motor->m_control_mode = CONTROL_MODE_CURRENT;
 	motor->m_motor_released = false;
 	motor->m_state = MC_STATE_RUNNING;
+    MC_ENABLE_GATE();
 
 	// MTPA overrides id target
 	MTPA_MODE mtpa_old = motor->m_conf->foc_mtpa_mode;
@@ -2271,6 +2295,7 @@ int mcpwm_foc_hall_detect(float current, uint8_t *hall_table, bool *result) {
 	motor->m_phase_override = false;
 	motor->m_control_mode = CONTROL_MODE_NONE;
 	motor->m_state = MC_STATE_OFF;
+    MC_DISABLE_GATE();
 	stop_pwm_hw((motor_all_state_t*)motor);
 	motor->m_conf->foc_mtpa_mode = mtpa_old;
 	timeout_configure(tout, tout_c, tout_ksw);
@@ -3361,6 +3386,7 @@ static void timer_update(motor_all_state_t *motor, float dt) {
 				motor->m_current_off_delay < dt) {
 			motor->m_control_mode = CONTROL_MODE_NONE;
 			motor->m_state = MC_STATE_OFF;
+            MC_DISABLE_GATE();
 			stop_pwm_hw(motor);
 		}
 	}

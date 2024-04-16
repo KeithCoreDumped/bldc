@@ -1388,6 +1388,71 @@ int conf_general_autodetect_apply_sensors_foc(float current,
 			*result = 2;
 		}
 	}
+
+    // MT6816
+    if (!res) {
+        mcconf->m_sensor_port_mode = SENSOR_PORT_MODE_MT6816_SPI_HW; // software spi actually
+        mc_interface_set_configuration(mcconf);
+
+        for (int i = 0;i < 1000;i++) {
+            mcpwm_foc_set_openloop_phase((float)i * current / 1000.0, 0.0);
+            fault = mc_interface_get_fault();
+            if (fault != FAULT_CODE_NONE) {
+                timeout_configure(tout, tout_c, tout_ksw);
+                mc_interface_unlock();
+                mc_interface_release_motor();
+                mc_interface_wait_for_motor_release(1.0);
+                mc_interface_set_configuration(mcconf_old);
+                mempools_free_mcconf(mcconf);
+                mempools_free_mcconf(mcconf_old);
+                return fault;
+            }
+            chThdSleepMilliseconds(1);
+        }
+
+        float phase_start = encoder_read_deg();
+        float phase_mid = 0.0;
+        float phase_end = 0.0;
+
+        for (int i = 0;i < 180.0;i++) {
+            mcpwm_foc_set_openloop_phase(current, i);
+            fault = mc_interface_get_fault();
+            if (fault != FAULT_CODE_NONE) {
+                timeout_configure(tout, tout_c, tout_ksw);
+                mc_interface_unlock();
+                mc_interface_release_motor();
+                mc_interface_wait_for_motor_release(1.0);
+                mc_interface_set_configuration(mcconf_old);
+                mempools_free_mcconf(mcconf);
+                mempools_free_mcconf(mcconf_old);
+                return fault;
+            }
+
+            chThdSleepMilliseconds(5);
+
+            if (i == 90) {
+                phase_mid = encoder_read_deg();
+            }
+        }
+
+        phase_end = encoder_read_deg();
+        float diff = fabsf(utils_angle_difference(phase_start, phase_end));
+        float diff_mid = fabsf(utils_angle_difference(phase_mid, phase_end));
+
+        if (diff > 2.0 && (diff_mid - diff / 2.0) < (diff / 4)) {
+            float offset, ratio;
+            bool inverted;
+            mcpwm_foc_encoder_detect(current, false, &offset, &ratio, &inverted);
+            mcconf_old->m_sensor_port_mode = SENSOR_PORT_MODE_MT6816_SPI_HW;
+            mcconf_old->foc_sensor_mode = FOC_SENSOR_MODE_ENCODER;
+            mcconf_old->foc_encoder_offset = offset;
+            mcconf_old->foc_encoder_ratio = ratio;
+            mcconf_old->foc_encoder_inverted = inverted;
+
+            res = true;
+            *result = 2;
+        }
+    }
 #endif
 
 	// Sensorless

@@ -57,7 +57,7 @@
 #define DISABLE_GATE()			palClearPad(GPIOB, 6)
 #else
 #define ENABLE_GATE()			palSetPad(GPIOB, 5)
-#define DISABLE_GATE()			palClearPad(GPIOB, 5)
+#define DISABLE_GATE()			//palClearPad(GPIOB, 5)
 #endif
 #define DCCAL_ON()
 #define DCCAL_OFF()
@@ -300,6 +300,10 @@
 #define HW_ENC_EXTI_ISR_VEC		EXTI9_5_IRQHandler
 #define HW_ENC_TIM_ISR_CH		TIM3_IRQn
 #define HW_ENC_TIM_ISR_VEC		TIM3_IRQHandler
+
+#ifndef MT6816_USE_SWSPI
+#define MT6816_USE_SWSPI
+#endif
 
 #if !defined(HW60_IS_MK3) && !defined(HW60_IS_MK4) && !defined(HW60_IS_MK5) && !defined(HW60_IS_MK6)
 // NRF pins

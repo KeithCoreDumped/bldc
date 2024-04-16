@@ -68,6 +68,7 @@ AD2S1205_config_t encoder_cfg_ad2s1205 = {
 };
 
 MT6816_config_t encoder_cfg_mt6816 = {
+#ifndef MT6816_USE_SWSPI
 #ifdef HW_SPI_DEV
 		&HW_SPI_DEV, // spi_dev
 		{//HARDWARE SPI CONFIG
@@ -90,6 +91,16 @@ MT6816_config_t encoder_cfg_mt6816 = {
 		0, 0,
 		0, 0,
 		{0, 0, 0, 0, 0, 0, 0},
+#endif
+#else
+        {
+                HW_HALL_ENC_GPIO3, HW_HALL_ENC_PIN3,
+                HW_HALL_ENC_GPIO1, HW_HALL_ENC_PIN1,
+                GPIOC, 4,
+                HW_HALL_ENC_GPIO2, HW_HALL_ENC_PIN2,
+                {{NULL, NULL}, NULL, NULL} // Mutex
+        },
+        {0, 0, 0, 0, 0, 0, 0},
 #endif
 };
 
