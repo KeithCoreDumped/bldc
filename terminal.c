@@ -313,6 +313,8 @@ void terminal_process_string(char *str) {
 		if (argc == 2) {
 			float current = -1.0;
 			sscanf(argv[1], "%f", &current);
+            ENABLE_GATE();
+            chThdSleepMilliseconds(200);
 
 			mc_configuration *mcconf = mempools_alloc_mcconf();
 			*mcconf = *mc_interface_get_configuration();
@@ -334,6 +336,7 @@ void terminal_process_string(char *str) {
 			} else {
 				commands_printf("Invalid argument(s). Current must be between 0.0 and %.2f\n", (double)mcconf->l_current_max);
 			}
+            DISABLE_GATE();
 
 			mempools_free_mcconf(mcconf);
 			mempools_free_mcconf(mcconf_old);
@@ -345,6 +348,8 @@ void terminal_process_string(char *str) {
 			float duty = -1.0;
 			sscanf(argv[1], "%f", &duty);
 			commands_printf("Measuring inductance...");
+            ENABLE_GATE();
+            chThdSleepMilliseconds(200);
 			if (duty > 0.0 && duty <= 0.9) {
 				mc_configuration *mcconf = mempools_alloc_mcconf();
 				*mcconf = *mc_interface_get_configuration();
@@ -364,6 +369,7 @@ void terminal_process_string(char *str) {
 					commands_printf("For more info type \"faults\" to view all logged faults\n");
 				}
 				mc_interface_set_configuration(mcconf_old);
+                DISABLE_GATE();
 
 				mempools_free_mcconf(mcconf);
 				mempools_free_mcconf(mcconf_old);
@@ -384,6 +390,8 @@ void terminal_process_string(char *str) {
 			sscanf(argv[3], "%f", &min_erpm);
 			sscanf(argv[4], "%f", &res);
 			commands_printf("Measuring flux linkage...");
+            ENABLE_GATE();
+            chThdSleepMilliseconds(200);
 			if (current > 0.0 && current <= mc_interface_get_configuration()->l_current_max &&
 					min_erpm > 0.0 && duty > 0.02 && duty <= 0.9 && res >= 0.0) {
 				float linkage;
@@ -404,6 +412,7 @@ void terminal_process_string(char *str) {
 					commands_printf("Resistance must be greater than 0.0");
 				}
 				commands_printf(" ");
+                DISABLE_GATE();
 			}
 		} else {
 			commands_printf("This command requires four arguments. [current duty min_erpm resistance]\n");
@@ -417,6 +426,7 @@ void terminal_process_string(char *str) {
 		mcconf->motor_type = MOTOR_TYPE_FOC;
 		mc_interface_set_configuration(mcconf);
 		commands_printf("Measuring resistance and inductance...");
+
 		float res = 0.0;
 		float ind = 0.0;
 		float ld_lq_diff = 0.0;
@@ -428,7 +438,6 @@ void terminal_process_string(char *str) {
 			commands_printf("Fault occured while measuring resistance and inductance: %s", mc_interface_fault_to_string(fault));
 			commands_printf("For more info type \"faults\" to view all logged faults\n");
 		}
-		
 
 		mc_interface_set_configuration(mcconf_old);
 
@@ -436,6 +445,8 @@ void terminal_process_string(char *str) {
 		mempools_free_mcconf(mcconf_old);
 	} else if (strcmp(argv[0], "measure_linkage_foc") == 0) {
 		if (argc == 2) {
+            ENABLE_GATE();
+            chThdSleepMilliseconds(200);
 			float duty = -1.0;
 			int fault = FAULT_CODE_NONE;
 			sscanf(argv[1], "%f", &duty);
@@ -500,6 +511,7 @@ void terminal_process_string(char *str) {
 					commands_printf("For more info type \"faults\" to view all logged faults\n");
 
 				}
+                DISABLE_GATE();
 			} else {
 				commands_printf("Invalid argument. Duty must be between 0.0 and 0.9\n");
 			}
@@ -508,6 +520,8 @@ void terminal_process_string(char *str) {
 		}
 	} else if (strcmp(argv[0], "measure_linkage_openloop") == 0) {
 		if (argc == 6) {
+            ENABLE_GATE();
+            chThdSleepMilliseconds(200);
 			float current = -1.0;
 			float duty = -1.0;
 			float erpm_per_sec = -1.0;
@@ -559,6 +573,7 @@ void terminal_process_string(char *str) {
 					commands_printf("Inductance must be greater than 0.0");
 				}
 				commands_printf(" ");
+                DISABLE_GATE();
 			}
 		} else {
 			commands_printf("This command requires five arguments. [current duty erpm_ramp_per_sec resistance inductance]\n");

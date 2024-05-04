@@ -805,6 +805,8 @@ void mcpwm_foc_release_motor(void) {
 	get_motor_now()->m_iq_set = 0.0;
 	get_motor_now()->m_id_set = 0.0;
 	get_motor_now()->m_motor_released = true;
+
+    MC_DISABLE_GATE();
 }
 
 /**
@@ -1477,6 +1479,7 @@ int mcpwm_foc_encoder_detect(float current, bool print, float *offset, float *ra
 	motor->m_motor_released = false;
 	motor->m_state = MC_STATE_RUNNING;
     MC_ENABLE_GATE();
+    chThdSleepMilliseconds(200);
 
 	// Disable timeout
 	systime_t tout = timeout_get_timeout_msec();
@@ -1708,7 +1711,7 @@ int mcpwm_foc_encoder_detect(float current, bool print, float *offset, float *ra
 	motor->m_phase_override = false;
 	motor->m_control_mode = CONTROL_MODE_NONE;
 	motor->m_state = MC_STATE_OFF;
-    MC_DISABLE_GATE();
+    DISABLE_GATE();
 	stop_pwm_hw((motor_all_state_t*)motor);
 
 	// Restore configuration
@@ -1757,7 +1760,6 @@ int mcpwm_foc_measure_resistance(float current, int samples, bool stop_after, fl
 	motor->m_control_mode = CONTROL_MODE_CURRENT;
 	motor->m_motor_released = false;
 	motor->m_state = MC_STATE_RUNNING;
-    MC_ENABLE_GATE();
 
 	// Disable timeout
 	systime_t tout = timeout_get_timeout_msec();
@@ -1830,7 +1832,6 @@ int mcpwm_foc_measure_resistance(float current, int samples, bool stop_after, fl
 		motor->m_phase_override = false;
 		motor->m_control_mode = CONTROL_MODE_NONE;
 		motor->m_state = MC_STATE_OFF;
-        MC_DISABLE_GATE();
 		stop_pwm_hw((motor_all_state_t*)motor);
 	}
 
@@ -1878,7 +1879,6 @@ int mcpwm_foc_measure_inductance(float duty, int samples, float *curr, float *ld
 	mc_interface_lock();
 	motor->m_control_mode = CONTROL_MODE_NONE;
 	motor->m_state = MC_STATE_OFF;
-    MC_DISABLE_GATE();
 	stop_pwm_hw((motor_all_state_t*)motor);
 
 	motor->m_conf->foc_sensor_mode = FOC_SENSOR_MODE_HFI;
@@ -1896,7 +1896,6 @@ int mcpwm_foc_measure_inductance(float duty, int samples, float *curr, float *ld
 
 	mcpwm_foc_set_configuration(motor->m_conf);
 
-	chThdSleepMilliseconds(1);
 
 	timeout_reset();
 	mcpwm_foc_set_duty(0.0);
@@ -2133,6 +2132,8 @@ bool mcpwm_foc_beep(float freq, float time, float voltage) {
 int mcpwm_foc_measure_res_ind(float *res, float *ind, float *ld_lq_diff) {
 	volatile motor_all_state_t *motor = get_motor_now();
 	int fault = FAULT_CODE_NONE;
+    MC_ENABLE_GATE();
+    chThdSleepMilliseconds(200);
 
 	const float kp_old = motor->m_conf->foc_current_kp;
 	const float ki_old = motor->m_conf->foc_current_ki;
@@ -2174,6 +2175,7 @@ int mcpwm_foc_measure_res_ind(float *res, float *ind, float *ld_lq_diff) {
 	motor->m_conf->foc_current_kp = kp_old;
 	motor->m_conf->foc_current_ki = ki_old;
 	motor->m_conf->foc_motor_r = res_old;
+    MC_DISABLE_GATE();
 	return fault;
 }
 
@@ -2330,7 +2332,7 @@ int mcpwm_foc_dc_cal(bool cal_undriven) {
 		}
 	};
 
-	chThdSleepMilliseconds(1000);
+	chThdSleepMilliseconds(800);
 
 	// Disable timeout
 	systime_t tout = timeout_get_timeout_msec();
@@ -2347,12 +2349,21 @@ int mcpwm_foc_dc_cal(bool cal_undriven) {
 
 	TIMER_UPDATE_DUTY_M1(TIM1->ARR / 2, TIM1->ARR / 2, TIM1->ARR / 2);
 
+    MC_ENABLE_GATE();
+    chThdSleepMilliseconds(200);
+
 	// Start PWM on phase 1
 	stop_pwm_hw((motor_all_state_t*)&m_motor_1);
 	PHASE_FILTER_ON();
 	TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_PWM1);
 	TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Enable);
 	TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Enable);
+    TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_PWM1);
+    TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Enable);
+    TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Enable);
+    TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_PWM1);
+    TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Enable);
+    TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Enable);
 	TIM_GenerateEvent(TIM1, TIM_EventSource_COM);
 
 #ifdef HW_HAS_DUAL_MOTORS
@@ -2383,9 +2394,15 @@ int mcpwm_foc_dc_cal(bool cal_undriven) {
 	// Start PWM on phase 2
 	stop_pwm_hw((motor_all_state_t*)&m_motor_1);
 	PHASE_FILTER_ON();
-	TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_PWM1);
-	TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Enable);
-	TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Enable);
+    TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_PWM1);
+    TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Enable);
+    TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Enable);
+    TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_PWM1);
+    TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Enable);
+    TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Enable);
+    TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_PWM1);
+    TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Enable);
+    TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Enable);
 	TIM_GenerateEvent(TIM1, TIM_EventSource_COM);
 
 #ifdef HW_HAS_DUAL_MOTORS
@@ -2412,9 +2429,15 @@ int mcpwm_foc_dc_cal(bool cal_undriven) {
 	// Start PWM on phase 3
 	stop_pwm_hw((motor_all_state_t*)&m_motor_1);
 	PHASE_FILTER_ON();
-	TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_PWM1);
-	TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Enable);
-	TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Enable);
+    TIM_SelectOCxM(TIM1, TIM_Channel_1, TIM_OCMode_PWM1);
+    TIM_CCxCmd(TIM1, TIM_Channel_1, TIM_CCx_Enable);
+    TIM_CCxNCmd(TIM1, TIM_Channel_1, TIM_CCxN_Enable);
+    TIM_SelectOCxM(TIM1, TIM_Channel_2, TIM_OCMode_PWM1);
+    TIM_CCxCmd(TIM1, TIM_Channel_2, TIM_CCx_Enable);
+    TIM_CCxNCmd(TIM1, TIM_Channel_2, TIM_CCxN_Enable);
+    TIM_SelectOCxM(TIM1, TIM_Channel_3, TIM_OCMode_PWM1);
+    TIM_CCxCmd(TIM1, TIM_Channel_3, TIM_CCx_Enable);
+    TIM_CCxNCmd(TIM1, TIM_Channel_3, TIM_CCxN_Enable);
 	TIM_GenerateEvent(TIM1, TIM_EventSource_COM);
 
 #ifdef HW_HAS_DUAL_MOTORS
@@ -2439,6 +2462,8 @@ int mcpwm_foc_dc_cal(bool cal_undriven) {
 	}
 
 	stop_pwm_hw((motor_all_state_t*)&m_motor_1);
+
+    MC_DISABLE_GATE();
 
 	m_motor_1.m_conf->foc_offsets_current[0] = current_sum[0] / samples;
 	m_motor_1.m_conf->foc_offsets_current[1] = current_sum[1] / samples;

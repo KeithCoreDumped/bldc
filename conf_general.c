@@ -779,6 +779,9 @@ bool conf_general_measure_flux_linkage(float current, float duty,
 	// the fault disapears.
 	chThdSleepMilliseconds(1000);
 
+    ENABLE_GATE();
+    chThdSleepMilliseconds(200);
+
 	// Disable timeout
 	systime_t tout = timeout_get_timeout_msec();
 	float tout_c = timeout_get_brake_current();
@@ -864,6 +867,7 @@ bool conf_general_measure_flux_linkage(float current, float duty,
 		mc_interface_unlock();
 		mempools_free_mcconf(mcconf);
 		mempools_free_mcconf(mcconf_old);
+        DISABLE_GATE();
 		return false;
 	}
 
@@ -885,6 +889,7 @@ bool conf_general_measure_flux_linkage(float current, float duty,
 	timeout_configure(tout, tout_c, tout_ksw);
 	mc_interface_set_configuration(mcconf_old);
 	mc_interface_unlock();
+    DISABLE_GATE();
 	mc_interface_set_current(0.0);
 
 	avg_voltage /= samples;
@@ -1515,6 +1520,8 @@ static int measure_r_l_imax(float current_min, float current_max,
 	*mcconf = *mc_interface_get_configuration();
 
 	const float res_old = mcconf->foc_motor_r;
+    ENABLE_GATE();
+    chThdSleepMilliseconds(200);
 
 	float i_last = 0.0;
 	for (float i = current_start;i < current_max;i *= 1.5) {
@@ -1551,6 +1558,7 @@ static int measure_r_l_imax(float current_min, float current_max,
 	mcconf->foc_motor_r = res_old;
 	mc_interface_set_configuration(mcconf);
 	mempools_free_mcconf(mcconf);
+    DISABLE_GATE();
 
 	return fault;
 }

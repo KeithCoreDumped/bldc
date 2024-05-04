@@ -930,7 +930,7 @@ void mcpwm_stop_pwm(void) {
 
 static void stop_pwm_ll(void) {
 	state = MC_STATE_OFF;
-    MC_DISABLE_GATE();
+    //MC_DISABLE_GATE();
 	ignore_iterations = MCPWM_CMD_STOP_TIME;
 	stop_pwm_hw();
 }
